@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Food Order App</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { createRoot } = ReactDOM;
+
+    // FoodItem Component
+    const FoodItem = ({ food, type }) => (
+      <div className={`p-2 rounded-lg shadow ${type === 'fresh' ? 'bg-pink-100' : 'bg-green-100'}`}>
+        <p className={`text-lg font-semibold ${type === 'fresh' ? 'text-pink-600' : 'text-green-600'}`}>{food.name}</p>
+      </div>
+    );
+
+    // Modal Component
+    const Modal = ({ message, onClose }) => {
+      if (!message) return null;
+      return (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center z-50">
+          <div className="bg-white p-8 rounded-xl shadow-lg w-11/12 md:w-1/2 lg:w-1/3">
+            <h3 className="text-xl font-bold mb-4 text-red-600">ValueTask Misuse Alert!</h3>
+            <p className="mb-4 text-gray-700 font-semibold">An `InvalidOperationException` was caught because of a common misuse pattern of `ValueTask`:</p>
+            <ul className="list-disc list-inside space-y-2 text-gray-600">
+              <li>
+                <span className="font-bold text-gray-800">Re-awaiting a completed `ValueTask`:</span> A `ValueTask` is a value type that is meant to be awaited only once. A second `await` on a completed task will throw an exception.
+              </li>
+              <li>
+                <span className="font-bold text-gray-800">Awaiting from multiple clients:</span> You should not share a `ValueTask` instance among multiple consumers.
+              </li>
+              <li>
+                <span className="font-bold text-gray-800">Awaiting an incomplete `ValueTask` synchronously:</span> Attempting to synchronously block on an incomplete `ValueTask` can lead to deadlocks or unexpected behavior.
+              </li>
+            </ul>
+            <p className="mt-4 text-gray-700">This example shows why it's crucial to understand when to use `ValueTask` for performance and when to stick with `Task` for safety and flexibility.</p>
+            <div className="mt-6 text-right">
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors duration-200"
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // FoodOrder App Component
+    const FoodOrder = () => {
+      const [foods, setFoods] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+      const [performance, setPerformance] = useState(null);
+      const [currentFoodType, setCurrentFoodType] = useState(null);
+      const [showModal, setShowModal] = useState(false);
+      const [modalMessage, setModalMessage] = useState("");
+
+      // Function to handle the food order and fetch both food and performance data
+      const handleOrder = async (apiType, foodType) => {
+        setLoading(true);
+        setError(null);
+        setPerformance(null);
+        setCurrentFoodType(foodType);
+        
+        try {
+          const response = await fetch(`https://localhost:44359/api/food/benchmark/${apiType}/${foodType}`);
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch food from the ${apiType} endpoint.`);
+          }
+          const data = await response.json();
+          
+          // Use the data returned from the new benchmark API endpoints
+          setFoods(data.foods);
+          setPerformance(data.performance);
+
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Function to handle the food order and fetch both food and performance data
+      const handleBreakValueTask = async () => {
+        setLoading(true);
+        setError(null);
+        setPerformance(null);
+        
+        // Simulating the error to ensure the modal is shown
+        try {
+          // This will now always throw an error, just like the broken API would
+          throw new Error("Simulated `InvalidOperationException` due to `ValueTask` misuse.");
+        } catch (err) {
+          setError(` ${err.message}`);
+          setModalMessage(err.message);
+          setShowModal(true);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Function to reset all data
+      const handleReset = () => {
+        setFoods([]);
+        setPerformance(null);
+        setError(null);
+        setCurrentFoodType(null);
+      };
+
+      // New function that closes the modal and resets the app
+      const handleOkayAndReset = () => {
+        handleReset(); // Resets the app state
+        setShowModal(false); // Closes the modal
+        setModalMessage(""); // Added this line to clear the modal message
+      };
+
+      return (
+        <div className="container mx-auto p-4 max-w-full bg-gray-100 min-h-screen">
+          <h1 className="text-3xl font-extrabold mb-6 text-center text-gray-800">Food Order and Performance</h1>
+          <p className="text-gray-600 text-center mb-8">
+            Order food to compare the performance of `Task` and `ValueTask` APIs.
+          </p>
+          
+          <div className="flex justify-center flex-wrap gap-4 mb-8">
+            <button
+              onClick={() => handleOrder("task", "fresh")}
+              className="px-6 py-3 bg-pink-500 text-white font-medium rounded-lg shadow-md hover:bg-pink-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50"
+              disabled={loading}
+            >
+              Fresh (Task)
+            </button>
+            <button
+              onClick={() => handleOrder("valuetask", "ready")}
+              className="px-6 py-3 bg-green-500 text-white font-medium rounded-lg shadow-md hover:bg-green-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+              disabled={loading}
+            >
+              Ready (ValueTask)
+            </button>
+            <button
+              onClick={handleBreakValueTask}
+              className="px-6 py-3 bg-red-500 text-white font-medium rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+              disabled={loading}
+            >
+              Misuse ValueTask
+            </button>
+            <button
+              onClick={handleReset}
+              className="px-6 py-3 bg-gray-400 text-gray-800 font-medium rounded-lg shadow-md hover:bg-gray-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50"
+              disabled={loading}
+            >
+              Reset
+            </button>
+          </div>
+          
+          {loading && <p className="text-center text-gray-500 font-medium my-4">Cooking...</p>}
+          {error && <p className="text-red-500 text-center font-medium my-4">{error}</p>}
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            {/* Left Card: Task */}
+            <div className="bg-white p-4 rounded-lg shadow-xl border border-gray-200 md:col-start-1 md:col-end-2">
+              <h2 className="text-xl font-bold mb-2 text-center text-gray-700">Task</h2>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li className="text-pink-600 bg-pink-100 p-2 rounded-lg"><span className="font-semibold text-gray-800">Represents</span> an asynchronous operation.</li>
+                <li className="text-pink-600 bg-pink-100 p-2 rounded-lg mt-1"><span className="font-semibold text-gray-800">Is a reference type</span> and is allocated on the heap.</li>
+                <li className="text-pink-600 bg-pink-100 p-2 rounded-lg mt-1"><span className="font-semibold text-gray-800">Used for</span> operations that take time, like fetching data from a database or a remote API.</li>
+                <li className="text-pink-600 bg-pink-100 p-2 rounded-lg mt-1"><span className="font-semibold text-gray-800">Slightly higher</span> memory overhead due to heap allocation.</li>
+              </ul>
+              <div className="bg-gray-50 p-4 rounded-lg shadow-sm mt-4">
+                <h3 className="text-xl font-bold mb-2 text-pink-600">Class Example</h3>
+                <p className="text-sm text-gray-500 mb-2">When you copy a `class`, only its **address** (reference) is copied.</p>
+                <pre className="bg-gray-200 p-3 rounded-md text-sm whitespace-pre-wrap">
+                  {`// Class definition
+public class Point {
+    public int X;
+    public int Y;
+}
+
+// Using the class
+Point p1 = new Point { X = 1, Y = 2 };
+Point p2 = p1; // The reference is copied here
+
+p2.X = 5;
+
+// Result:
+// p1.X = 5 (It changed!)
+// p2.X = 5`}
+                </pre>
+              </div>
+            </div>
+            
+            {/* Center Card: Performance Metrics */}
+            {performance && (
+              <div className="bg-white p-6 rounded-lg shadow-xl border border-gray-200 md:col-start-2 md:col-end-3">
+                <h2 className="text-2xl font-bold mb-4 text-center text-gray-700">Performance Metrics</h2>
+                <div className="flex flex-col justify-around items-center space-y-4">
+                  <div className="flex flex-col items-center">
+                    <span className="text-4xl font-extrabold text-indigo-600">{performance.speedMs} ms</span>
+                    <span className="text-gray-500 mt-1">Execution Speed</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-4xl font-extrabold text-red-600">{performance.simulatedMemoryMb} MB</span>
+                    <span className="text-gray-500 mt-1">Simulated Memory</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Right Card: ValueTask */}
+            <div className="bg-white p-4 rounded-lg shadow-xl border border-gray-200 md:col-start-3 md:col-end-4">
+              <h2 className="text-xl font-bold mb-2 text-center text-gray-700">ValueTask</h2>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li className="text-green-600 bg-green-100 p-2 rounded-lg"><span className="font-semibold text-gray-800">Represents</span> an asynchronous operation with an optional result.</li>
+                <li className="text-green-600 bg-green-100 p-2 rounded-lg mt-1"><span className="font-semibold text-gray-800">Is a value type</span> and is allocated on the stack (when possible).</li>
+                <li className="text-green-600 bg-green-100 p-2 rounded-lg mt-1"><span className="font-semibold text-gray-800">Highly efficient</span> for methods that often return synchronously from a cache.</li>
+                <li className="text-green-600 bg-green-100 p-2 rounded-lg mt-1"><span className="font-semibold text-gray-800">Low memory overhead</span> since it avoids new object allocation for synchronous results.</li>
+              </ul>
+              <div className="bg-gray-50 p-4 rounded-lg shadow-sm mt-4">
+                <h3 className="text-xl font-bold mb-2 text-green-600">Struct Example</h3>
+                <p className="text-sm text-gray-500 mb-2">When you copy a `struct`, a **complete copy** of the data is made.</p>
+                <pre className="bg-gray-200 p-3 rounded-md text-sm whitespace-pre-wrap">
+                  {`// Struct definition
+public struct Point {
+    public int X;
+    public int Y;
+}
+
+// Using the struct
+Point p1 = new Point { X = 1, Y = 2 };
+Point p2 = p1; // A complete copy is made here
+
+p2.X = 5;
+
+// Result:
+// p1.X = 1 (It remains unchanged)
+// p2.X = 5`}
+                </pre>
+              </div>
+            </div>
+          </div>
+          
+          {foods.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+              {foods.map((food, index) => (
+                <FoodItem key={index} food={food} type={currentFoodType} />
+              ))}
+            </div>
+          )}
+
+          {/* Modal for errors */}
+          <Modal
+            message={modalMessage}
+            onClose={handleOkayAndReset}
+          />
+        </div>
+      );
+    };
+
+    // Render the app
+    const root = createRoot(document.getElementById("root"));
+    root.render(<FoodOrder />);
+  </script>
+</body>
+</html>
